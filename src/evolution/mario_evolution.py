@@ -31,8 +31,9 @@ class MarioEvolution(Evolution):
                  gene_choices: List[str] = (Move.RIGHT, Move.JUMP_RIGHT, Move.SIT_RIGHT),
                  mushroom_score: float = 5,
                  kill_g_score: float = 2,
-                 not_necessary_jump_penalty: float = 0.5,
-                 not_necessary_sit_penalty: float = 0.5,
+                 not_necessary_jump_penalty: float = 0.25,
+                 not_necessary_sit_penalty: float = 0.25,
+                 double_jump_penalty: float = 0.25,
                  winning_score: float = 5,
                  mutation_probability: float = 0.5,
                  corssover_point_count: int = 2):
@@ -43,6 +44,7 @@ class MarioEvolution(Evolution):
         self.mushroom_score = mushroom_score
         self.not_necessary_jump_penalty = not_necessary_jump_penalty
         self.not_necessary_sit_penalty = not_necessary_sit_penalty
+        self.double_jump_penalty = double_jump_penalty
         self.kill_g_score = kill_g_score
         self.winning_score = winning_score
         self.mutation_probability = mutation_probability
@@ -65,6 +67,10 @@ class MarioEvolution(Evolution):
             current_step = game_condition[i]
             if current_step == GameElement.GROUND:
                 steps += 1
+                if chromosome[i - 1] == Move.SIT_RIGHT:
+                    extra_score -= self.not_necessary_sit_penalty
+                if i < len(game_condition) - 1 and game_condition[i + 1] != GameElement.GUMBA and chromosome[i - 1] == Move.JUMP_RIGHT:
+                    extra_score -= self.not_necessary_jump_penalty
             elif current_step == GameElement.GUMBA:
                 if chromosome[i - 1] == Move.JUMP_RIGHT:
                     steps += 1
@@ -82,8 +88,13 @@ class MarioEvolution(Evolution):
                 steps += 1
                 if chromosome[i - 1] in (Move.RIGHT, Move.SIT_RIGHT):
                     extra_score += self.mushroom_score
+                if chromosome[i - 1] == Move.JUMP_RIGHT:
+                    extra_score -= self.not_necessary_jump_penalty
             else:
                 raise Exception("Not Valid GameElement")
+        for i in range(len(chromosome) - 1):
+            if chromosome[i] == chromosome[i + 1] and chromosome[i] == Move.JUMP_RIGHT:
+                extra_score -= self.double_jump_penalty
         winning = False
         if steps == len(game_condition):
             extra_score += self.winning_score
@@ -115,8 +126,8 @@ class MarioEvolution(Evolution):
         selected_ones = []
         if strategy == SelectionStrategy.BASED_ON_FITNESS:
             sort = sorted(chromosome_scores, key=lambda x: x[1])
-            reverse = reversed(sort)
-            selected_ones = reverse[:how_many]
+            reverse = list(reversed(sort))
+            selected_ones = [x[0] for x in reverse[:how_many]]
         elif strategy == SelectionStrategy.PROPORTIONAL_TO_FITNESS:
             for _ in range(how_many):
                 selected_ones.append(self.__which_one_is_selected(chromosome_probabilities,
